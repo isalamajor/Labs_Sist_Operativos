@@ -1,0 +1,113 @@
+#+options: toc:nil H:3
+#+latex_header: \usepackage{graphicx}
+#+LATEX: \setlength\parindent{0pt}
+#+latex_header: \usepackage{fancyhdr}
+#+latex_header: \pagestyle{fancy}
+#+latex_header: \setlength\headheight{26pt}
+#+latex_header: \rhead{\includegraphics[width=4cm]{Logo-uc3m.jpg}}
+#+latex_header: \lhead{L. Camacho, M. I. Hernández, L. García-Ochoa\newline Operating Systems\newline Report for the Assigment 3}
+\begin{titlepage}
+
+	\begin{center}
+		\vspace*{80pt}
+
+		\begin{LARGE}			\bf{Report of the Assigment 3\\}
+		\end{LARGE}
+		\vspace{20pt}
+		\textbf{
+			Luis Camacho Portero (100472172)\\
+			María Isabel Hernández Barrio (100472315)\\
+			Lucía García-Ochoa Agüero (100472088)}\\
+		\vspace{40pt}
+		\includegraphics{Logo-uc3m.jpg} \\
+		\vspace{40pt}
+
+\begin{Large}
+		Operating Systems\\
+		\vspace{10pt}
+		Course 2022-2023\\
+\end{Large}
+		\vspace{30pt}
+		\vspace{30pt}
+
+
+		\vspace{20pt}
+
+
+	\end{center}
+\pagenumbering{gobble}
+\end{titlepage}
+\newpage
+\thispagestyle{empty}
+\tableofcontents
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\newpage
+* Description of the code
+** =bank=
+The whole program starts in this file. It is mainly in charge of parsing the arguments and the given file where the operations are stored, initiating the queues (=list_client_ops= and =circular_queue=), the bank accounts and the global variables.
+
+It is also in charge of initiating the necessary condition variables, the mutex and creating the =atm= and =worker= threads, as well as cleaning up all the used resources (queues, threads, mutex...) when the threads finish executing.
+
+The initial functions that the threads execute are also defined here:
+
+The function =atm= is in charge of passing the parsed operations from the initial queue =list_client_ops= to =circular_queue=, checking on the way that the former queue is not empty and that the operation is a valid pointer. All of this occurs in a critical region; from the beginning, pointers shared between threads are used, and thus almost everything is wrapped around a mutex.
+
+The function =worker= gets the operation from =circular_queue=, and makes this given operation on the bank. Similarly to the =atm= function, mostly everything occurs in a critical section, and thus the same mutex used with the producer threads is used (after all, =circular_queue= is shared between both types of threads).
+** =queue=
+In this file and its header you can find the functions related to the definition of the queue, its auxiliary data structures and the different operations available, such as =queue_init=, which works as a constructor for the queue; =queue_destroy=, its destructor; =queue_get= to pop from the queue, and =queue_put= to push into the queue.
+
+One can notice that we decided to create a queue based on a doubly linked list for a simple reason: the threads are going to be constantly popping and pushing elements from the tail and head, respectively, so directly accessing them (even though it implies a greater memory consumption) can save a lot of overhead.
+
+Another important design decision we made is related to the =q_elem= struct: it works as a container that wraps around the inserted value. This is actually convenient, since we make the operations through this auxiliary structure without involving the actual value. Not only that, but it also allows for a more general use case.
+** =parser=
+In this file we defined an auxiliary data structure that stores the possible operations obtained from the file, as well as a function for parsing this given file.
+
+The structure is fairly simple: since the parameters have different meanings depending on the operations, it stores both the parameters and the operation type, which can allows to later identify the meaning of these parameters.
+
+There is also the =parse_file= function. As its name indicates, this function is in charge of iterating through each line of the file, obtaining the respective operation, and inserting it into a list of all the operations.
+
+However, since we have defined the queue data structure, instead of using a plain array, we took the decision of using our own queue, as it is really convenient and gives us a lot of flexibility.
+** =operations=
+This file defines the main bank data structures related to the bank accounts, as well as some functions that initialize, destroy and modify the bank accounts.
+
+Regarding the data structures, we have the =bank= struct, which contains the maximum amount of accounts and a flexible array member where all the accounts are stored. However, notice that this array stores pointer to the account's information. This is due to the fact that not only must we store the account's balance, but also if the account is active or not (that is, if the =CREATE= operation for that given account was processed or not). This last attribute was incorporated for security sake, as we do not want users to operate on inactive accounts (or to run =CREATE= twice for the same account).
+
+Then, we have the =operate_bank= function, which operates on the given =bank= and the respective account/s accordingly to the type of the passed operation. It simply takes the bank account/s involved in the operation and makes the necessary changes in the balance to reflect the operation.
+\newpage
+* Test cases
+** Operations and File parsing
+All of these test were manually made by creating an auxiliar file =test ops.txt= that we wrote for each test case and then emptied for the next one.
+
+Since the =checker_os_p3= already checked that the number of lines must be equal to =max_operations=, we omit here that first line, but it was included when testing.
+*** Test 1
+'Create' operation twice for the same account
+
+=CREATE 1=
+
+=CREATE 2=
+- *Expected output* \newline
+  ==
+- *Actual output* \newline
+  ==
+*** Test 2
+Operation refers to invalid account
+*** Test 3
+Wrong number of parameters for the operation
+** Queue
+Since the queue is a core element of the program, we have to check that all the operations function correctly.
+
+To test this we made a simple program that checks that the queue works as intended by making a series of operations on it[fn:1]
+*** Test 1
+Check that no element in inserted when its full or no element can be obtained when empty
+*** Test 2
+Check that the elements are in order (since it is a doubly linked list, we have to check from the head to the tail and vice versa).
+* Conclusions
+The main problem we faced was related to the great amount of dinamically-allocated memory that we used throughout the program. It was the main source of errors and wrong values, and the most difficult part to debug. However, after spending hours monitoring the use of memory we started to see where the errors took place, which turned out to be silly mistakes such as stating the size of the memory to allocate.
+
+Also, to store the bank accounts, we realized that we should also include a value that ensured that the account could be created only once (avoiding multiple =CREATE= operations for the same account). This meant that an array of integers was not enough. Besides, we had to pass the =max_accounts= value to the thread along with the accounts information (to check that the operations, when executed, were applied to valid accounts). Therefore, after experimenting with different data structures, we decided to implement a struct with flexible array member, which turned out to be quite handy.
+
+A final, personal remark that we wanted to share is that this was the most interesting assigment that we have had so far. It [se acerca a un uso suficientemente realista de C]
+
+* Footnotes
+[fn:1] The code is defined in the file =tests/queue_tests.c=. To run it, just type in the command line: =gcc -Wall -o queue queue_tests.c ../queue.c=.

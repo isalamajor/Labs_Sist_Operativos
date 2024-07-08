@@ -1,0 +1,273 @@
+#+options: toc:nil H:3
+#+latex_header: \usepackage{graphicx}
+#+LATEX: \setlength\parindent{0pt}
+#+latex_header: \usepackage{fancyhdr}
+#+latex_header: \pagestyle{fancy}
+#+latex_header: \setlength\headheight{26pt}
+#+latex_header: \rhead{\includegraphics[width=4cm]{Logo-uc3m.jpg}}
+#+latex_header: \lhead{L. Camacho, M. I. Hernández, L. García-Ochoa\newline Operating Systems\newline Report for the Assigment 2}
+\begin{titlepage}
+
+	\begin{center}
+		\vspace*{80pt}
+
+		\begin{LARGE}			\bf{Report of the Assigment 2\\}
+		\end{LARGE}
+		\vspace{20pt}
+		\textbf{
+			Luis Camacho Portero (100472172)\\
+			María Isabel Hernández Barrio (100472315)\\
+			Lucía García-Ochoa Agüero (100472088)}\\
+		\vspace{40pt}
+		\includegraphics{Logo-uc3m.jpg} \\
+		\vspace{40pt}
+
+\begin{Large}
+		Operating Systems\\
+		\vspace{10pt}
+		Course 2022-2023\\
+\end{Large}
+		\vspace{30pt}
+		\vspace{30pt}
+
+
+		\vspace{20pt}
+
+
+	\end{center}
+\pagenumbering{gobble}
+\end{titlepage}
+\newpage
+\thispagestyle{empty}
+\tableofcontents
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\newpage
+* Description of the code
+** Minishell
+To execute the command sequence (that is, either a command alone or several commands connected by pipes), we developed the function =exec_command=.
+This function was written with the intention of making possible the pipelining of an arbitrary
+number of commands, which we wrote based on the proposed solution written by Jonathan Leffler[fn:1].
+His solution has the advantage of being clear to understand even though recursion is involved.
+However, his solution was only a simpler version; we had to understand how it worked to be able to modify it to support file redirections.
+
+To accept background processes, we had to wrap the =exec_command= call with a fork that ensures that it was executed in the child process, and wait for its termination only if the process was /not/ executed in background.
+
+Also, the file redirection was based on the idea that we could simply pass as arguments of =exec_command= file descriptor for each stream.
+Besides, if no custom stream was specified, it would use the default one, which would not affect the functionality of the program since, as the man page for =dup2= states, "if  oldfd  is a valid file descriptor, and newfd has the same value as oldfd, then =dup2()= does nothing, and returns newfd"[fn:2].
+** =mycalc=
+The implementation of this inner command was straightforward: we first check that the format is the correct one. Then, we make sure that it is not executed in background, there are no file redirections and that it comes with three parameters. Otherwise, an error is shown.
+
+Then, we parse the parameters and make sure that the are valid ones (the operands must be numbers and the operation must be =add=, =mul= or =div=). If everything is in order, we make the corresponding operation and print the result with the specified format.
+
+In case of the addition, since we have to also print 'Acc', we created a variable inside =main= called =acc=, and we pass its pointer to the function to update it each time =mycalc= is called.
+** =mytime=
+Similarly to =mycalc=, we begin by checking that the format is the correct one: there must be no background and no file redirections. Also, in this case, no argument must be passed.
+
+Since we already had the timer, we just needed to make some simple arithmetic operations to get hours, minutes and seconds.
+The only thing left would be to correctly format the output. For that, we write =%02d= when printing each number to ensure that there will a leading zero if the number is lower than 10.
+\newpage
+* Test cases
+** Minishell
+The minishell tests where straightforward, as we just had to compare the result in a shell like =bash= or =zsh= with the result given by our minishell
+*** Test 1
+Three-command pipeline
+
+=man grep | grep - | wc=
+- *Expected output* \newline
+  =176 1292 10792=
+- *Actual output* \newline
+  =176 1292 10792=
+*** Test 2
+Seven-command pipeline.
+
+=man grep | grep a | grep - | grep , | grep u | grep o | wc=
+- *Expected output* \newline
+  =61 1281 8511=
+- *Actual output* \newline
+  =61 1281 8511=
+
+For some reason, it stops working when we reach eight commands (say, we add a new pipeline with =grep i= to the test, before =wc=), no matter what the =MAXIMUM_COMMAND= macro's value is.
+
+This is probably due to a buffer overflow, since a command like =ls -la | man grep | grep - | wc | wc | ls -la | man grep | wc= does work and it is composed of 8 commands. However, this test's main objective is to demonstrate that the pipelining works for more than just three commands, which it successfully accomplishes.
+
+\newpage
+*** Test 3
+Just one command with several parameters
+
+=ls -A -l --human-readable -S=
+- *Expected output* \newline
+  =total 108K=
+
+  =-rwxr-xr-x. 1 luis luis  27K Apr 15 12:17 msh=
+
+  =-rw-r--r--. 1 luis luis  21K Feb 22 17:21 libparser.so=
+
+  =-rwxr-xr-x. 1 luis luis  12K Feb 27 13:56 checker_os_p2.sh=
+
+  =-rw-r--r--. 1 luis luis 9.6K Apr 15 12:17 msh.o=
+
+  =-rw-r--r--. 1 luis luis 8.2K Apr 13 11:35 os.zip=
+
+  =-rw-r--r--. 1 luis luis 8.1K Apr 15 12:17 msh.c=
+
+  =-rw-r--r--. 1 luis luis  251 Feb 27 12:49 Makefile=
+
+  =-rw-r--r--. 1 luis luis   95 Apr 13 10:56 authors.txt==
+- *Actual output* \newline
+  =total 108K=
+
+  =-rwxr-xr-x. 1 luis luis  27K Apr 15 12:17 msh=
+
+  =-rw-r--r--. 1 luis luis  21K Feb 22 17:21 libparser.so=
+
+  =-rwxr-xr-x. 1 luis luis  12K Feb 27 13:56 checker_os_p2.sh=
+
+  =-rw-r--r--. 1 luis luis 9.6K Apr 15 12:17 msh.o=
+
+  =-rw-r--r--. 1 luis luis 8.2K Apr 13 11:35 os.zip=
+
+  =-rw-r--r--. 1 luis luis 8.1K Apr 15 12:17 msh.c=
+
+  =-rw-r--r--. 1 luis luis  251 Feb 27 12:49 Makefile=
+
+  =-rw-r--r--. 1 luis luis   95 Apr 13 10:56 authors.txt==
+\newpage
+*** Test 4
+Output and input file redirections with three commands
+
+=grep { | grep if | wc < msh.c > /tmp/test4_lab2_os.txt=
+
+=cat /tmp/test4_lab2_os.txt=
+- *Expected output* \newline
+  =21 132 873=
+- *Actual output* \newline
+  =21 132 873=
+*** Test 5
+Error redirection
+
+=ls -ñ !> /tmp/error_test5_lab2_os.txt=
+
+=cat /tmp/error_test5_lab2_os.txt=
+- *Expected output* \newline
+  =ls: invalid option -- '�=
+
+  =Try 'ls --help' for more information.=
+- *Actual output* \newline
+  =ls: invalid option -- '�=
+
+  =Try 'ls --help' for more information.=
+*** Test 6
+Unfinished pipeline (at the end)
+
+=man grep | grep |=
+- *Expected output*[fn:3] \newline
+  =pipe>=
+- *Actual output* \newline
+  =Copyright 1998-2000, 2002, 2005-2021 Free Software Foundation, Inc.=
+
+  =GNU grep 3.7 2019-12-29 GREP(1)=
+*** Test 7
+Unfinished pipeline (at the beginning)
+
+=| ls=
+- *Expected output* \newline
+  =parse error near '|'=
+- *Actual output* \newline
+  =segmentation fault (core dumped) ./msh=
+
+Since this is problem of how the command is parsed into the given data structures (argvv, filev...), there is nothing we could do about this. Similarly, we could try to change the order of the file redirections, but that would probably lead to the same result, so there is no reason to test that.
+** =mycalc=
+*** Test 1
+Correct command sequence
+
+=mycalc 4 add 29=
+
+=mycalc 49 div 29=
+
+=mycalc 49 add 3=
+
+=mycalc 49 mul 3=
+- *Expected output* \newline
+  =[OK] 4 + 29 = 33; Acc 33=
+
+  =[OK] 49 / 29 = 1; Remainder 20=
+
+  =[OK] 49 + 3 = 52; Acc 85=
+
+  =[OK] 49 * 3 = 147=
+- *Actual output* \newline
+  =[OK] 4 + 29 = 33; Acc 33=
+
+  =[OK] 49 / 29 = 1; Remainder 20=
+
+  =[OK] 49 + 3 = 52; Acc 85=
+
+  =[OK] 49 * 3 = 147=
+*** Test 2
+Incorrect format (operation)
+
+=mycalc 234 sum 29=
+- *Expected output* \newline
+  =[ERROR] The structure of the command is mycalc <operand_1> <add/mul/div> <operand_2>=
+- *Actual output* \newline
+  =[ERROR] The structure of the command is mycalc <operand_1> <add/mul/div> <operand_2>=
+*** Test 3
+Division by zero
+
+=mycalc 4 div 0=
+- *Expected output* \newline
+  =[ERROR] Division by zero is not allowed=
+- *Actual output* \newline
+  =[ERROR] Division by zero is not allowed=
+*** Test 4
+Negative division
+
+=mycalc -45 div -7=
+- *Expected output* \newline
+=[OK] -45 / -7 = 6; Remainder -3=
+- *Actual output* \newline
+=[OK] -45 / -7 = 6; Remainder -3=
+\newpage
+** =mytime=
+*** Test 1
+Leave the shell open for some given time (in our case we left it open for around an hour and a half)
+
+=mytime=
+- *Expected output* \newline
+  =01:37:22=
+- *Actual output* \newline
+  =01:37:22=
+*** Test 2
+Add output file redirection
+
+=mytime > example.txt=
+- *Expected output* \newline
+  =[ERROR] 'mytime' does not accept command sequences, file redirections or background execution=
+- *Actual output* \newline
+  =[ERROR] 'mytime' does not accept command sequences, file redirections or background execution=
+*** Test 3
+Add one parameter
+
+=mytime a=
+- *Expected output* \newline
+  =[ERROR] 'mytime' requires no parameters=
+- *Actual output* \newline
+  =[ERROR] 'mytime' requires no parameters=
+\newpage
+* Conclusions
+The main problem we had was related to the pipelining and extending it for more than just three commands. We put a lot of though around the solution, only to get frustrated because things did not work out as expected. It was after analysing visually (we draw a lot of diagrams to understand what should be going on with the pipelining) and a lot of research that we came up with the solution that now composes the main part of the program: the =execute_command= function.
+
+After achieving this, the rest of the project was rather trivial. The only main problem we had was with file redirection because we did not realize until many hours later that when we closed the file descriptors, there were times that we closed =STDIN= and =STDOUT= which made the program crash. However, we quickly fixed it and moved on with the rest of the project.
+
+To conclude, we wanted to share our feelings about this project:
+
+On the one hand, this project has provided us with the necessary knowledge about process forking and pipelining, enough to develop a fairly sophisticated shell.
+
+On the other hand, it has been a really motivating experience. After using linux for a while, it was really interesting to develop our own shell. After all, it lets us understand how popular shells like bash, zsh and fish actually work from the inside.
+* Footnotes
+
+[fn:3] In other shells this leads to another prompt =pipe>= to finish the pipelining. In our case, since we did not implement that, we could consider valid the output
+[fn:2] Check the man page for =dup2=: https://man7.org/linux/man-pages/man2/dup.2.html
+
+[fn:1] https://stackoverflow.com/questions/13636252/c-minishell-adding-pipelines

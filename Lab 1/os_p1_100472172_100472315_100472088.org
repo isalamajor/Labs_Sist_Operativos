@@ -1,0 +1,434 @@
+#+options: toc:nil H:3
+#+latex_header: \usepackage{graphicx}
+#+latex_header: \usepackage{fancyhdr}
+#+latex_header: \pagestyle{fancy}
+#+latex_header: \setlength\headheight{26pt}
+#+latex_header: \rhead{\includegraphics[width=4cm]{Logo-uc3m.jpg}}
+#+latex_header: \lhead{L. Camacho, M. I. Hernández, L. García-Ochoa\newline Operating Systems\newline Report for the Assigment 1}
+\begin{titlepage}
+
+	\begin{center}
+		\vspace*{80pt}
+
+		\begin{LARGE}			\bf{Report of the Assigment 1\\}
+		\end{LARGE}
+		\vspace{20pt}
+		\textbf{
+			Luis Camacho Portero (100472172)\\
+			María Isabel Hernández Barrio (100472315)\\
+			Lucía García-Ochoa Agüero (100472088)}\\
+		\vspace{40pt}
+		\includegraphics{Logo-uc3m.jpg} \\
+		\vspace{40pt}
+
+\begin{Large}
+		Operating Systems\\
+		\vspace{10pt}
+		Course 2022-2023\\
+\end{Large}
+		\vspace{30pt}
+		\vspace{30pt}
+
+
+		\vspace{20pt}
+
+
+	\end{center}
+\pagenumbering{gobble}
+\end{titlepage}
+\newpage
+\thispagestyle{empty}
+\tableofcontents
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\newpage
+* Description of mywc.c
+This functions receives a file path as an argument and counts the number of lines, words and bytes, that are in the file and prints them along with the file name. For that aim, it follows this algorithm for each file passed as an argument:
+1. Open the file (and check there are no problems in the process) in read-only mode
+2. Read a byte in the file and check...
+   a. If it is a line (add one to the line count), a tab or an empty space
+   b. If it is a alphanumeric character, in which case
+      1. If it is the first character (it comes after any of the characters defined in 2.(a)) then add one to the word count
+      2. Else, just continue until the word finishes
+   c. If it is the end of the file, go to 4
+3. Then, since one byte was read, just add one to the byte count and go back to 2
+4. Close the file
+5. Print the counters' value and finish
+
+Even though we were only asked to implement it so that it could get the word, line and byte counts of one file, we realized that it was really easy to implement a version in which any amount of files could be entered, only exiting the program once it is done with all or them or one with a wrong name is found.
+\newpage
+* Description of myenv.c
+This program takes an arbitrary number of arguments (each one of them refers to a variable in an env.txt file) and one last argument consisting of the output file. The purpose of the program is writing, following the order of appearance in the input file, the variable and its content into the output file. The algorithm behind is the following:
+1. Open the output file (and check there are no errors in doing so) and remove its previous content
+2. For each argument refering to a variable:
+   a. Check that it exists in the input file
+      1. If it does, store both the line, its length and its number (that is, which line it occupies in the file)
+      2. Else, store a failure where the information should be and continue (that is, do not end the program, just print a message stating which one failed)
+   b. Store in an array all the successes and failures
+3. Sort the array, using the line number as the reference for the sorting
+4. Iterate through the array, omitting the failures, and write each line in the output file.
+5. Close the output file and finish
+
+In order to optimize the program's functionality, not only we struggled finding the algorithm we just presented, but initially we also made use of =qsort=, a library function that sorts the elements of the array where the structs that store the information of each line are located.
+
+However, since library functions are not allowed, for the sorting of the array we implemented a simple bubble sort algorithm. Even though is not really optimal, the scope of the program is not affected by its hideous time complexity.
+\newpage
+* Description of myls.c
+This function receives one argument: the path of a directory, and prints all its entries. If no argument is entered, the current directory is taken. This is how it works:
+1. Check the number of arguments the program started with
+   a. If there is just one, go to 2 using the current directory from where the program was initiated
+   b. If there are two or more arguments, for each directory passed as argument:
+      1. Open the given directory (and check no errors occured)
+      2. Read the content of the directory one by one and print it
+      3. When no more content is left, close the directory
+
+Similarly to /mywc/, at first we stuck to the requirements, which only forces us to make the program work with one (or none) argument. However, we took the liberty of implementing a version in which more than one directories can be passed as parameters.
+
+This does not affect the code structure (after all, it is just a for loop iterating through all the arguments), so the main functionality was not affected by this decision.
+\newpage
+* Conclusions and problems faced
+At the beginning, getting used to the syscalls was somewhat complicated: when writing the code of both /mywc/ and /myls/ programs, the most difficult part was understanding how =open=, =write=, =read=...
+worked. Fortunately, the programs to implement were rather easy, so it was a matter of time until we started to get how to correctly implement the syscalls.
+
+After these two programs, we tried to tackle with /myenv/, which was more cumbersome than the previous two. Even though we had some struggles improving the efficiency of the code (at the beginning we
+iterated through the 'env.txt' file three times: one for getting the line, another one to read the contents and another one to store the string),
+we managed to improve the program at the end, and instead we just made it so that it iterates once the file, and then uses =lseek= to go back the necessary amount of characters
+to store the line in a dynamically-allocated string.
+
+Overall, this assigment proved to be really useful to learn many of the main syscalls that C provides for dealing with files and directories.
+\newpage
+* Appendix: Test Cases
+** Test cases for mywc.c
+The expected output of each test was obtained by applying the command =wc=, as it has the same behavior when passed just one argument.
+*** Test 1
+Checking a given file
+
+=./mywc mywc.c=
+- *Expected output* \newline
+  =65  267 1913 mywc.c=
+- *Actual output* \newline
+  =65	267	1913	mywc.c=
+*** Test 2
+No file entered
+
+=./mywc=
+- *Expected output* \newline
+
+- *Actual output* \newline
+  =Wrong number of arguments=
+*** Test 3
+More than one file entered
+
+=./mywc mywc.c myls.c myenv.c=
+- *Expected output* \newline
+  =199  1364  8622 myenv.c=
+
+   =64   287  1996 myls.c=
+
+   =67   273  1968 mywc.c=
+
+  =330  1924 12586 total=
+- *Actual output* \newline
+   =199	1364	8622	myenv.c=
+
+   =64	294	1996	myls.c=
+
+   =67	273	1968	mywc.c=
+*** Test 4
+Non-existing file entered
+
+=./mywc my=
+- *Expected output* \newline
+  wc: my: No such file or directory
+- *Actual output* \newline
+  cannot access 'my': there is no such file
+*** Test 5
+Directory entered instead of file
+
+=./mywc /home=
+- *Expected output* \newline
+  =wc: /home: Is a directory=
+
+        =0       0       0 /home=
+- *Actual output* \newline
+  =0       0       0 /home=
+\newpage
+** Test cases for myenv.c
+*** Test 1
+We enter the first and last variables:
+
+=./myenv SHELL _ lines.txt=
+- *Expected output (in lines.txt)* \newline
+
+  =SHELL=/bin/bash=
+
+  =_=/usr/bin/env=
+- *Actual output (in lines.txt)*
+
+  =SHELL=/bin/bash=
+
+  =_=/usr/bin/env=
+*** Test 2
+We enter the first and last variables in the inverse order:
+
+=./myenv _ SHELL lines.txt=
+- *Expected output (in lines.txt)*  \newline
+  =SHELL=/bin/bash=
+
+  =_=/usr/bin/env=
+- *Actual output (in lines.txt)*  \newline
+  =SHELL=/bin/bash=
+
+  =_=/usr/bin/env=
+*** Test 3
+No variable was entered
+
+=./myenv lines.txt=
+- *Expected output (in terminal)*  \newline
+  =Too few arguments=
+- *Actual output (in terminal)*  \newline
+  =Too few arguments=
+*** Test 4
+No file was entered
+
+=./myenv LANG=
+- *Expected output (in terminal)*  \newline
+  Too few arguments
+- *Actual output (in terminal)*  \newline
+  Too few arguments
+*** Test 5
+The same variable is entered several times
+
+=./myenv PWD LOGNAME LOGNAME PWD USER PWD lines=
+- *Expected output (in lines.txt)*  \newline
+  =PWD=/home/profes/ssoo-uc3m=
+
+  =PWD=/home/profes/ssoo-uc3m=
+
+  =PWD=/home/profes/ssoo-uc3m=
+
+  =LOGNAME=ssoo-uc3m=
+
+  =LOGNAME=ssoo-uc3m=
+
+  =USER=ssoo-uc3m=
+- *Actual output (in lines.txt)*  \newline
+  =PWD=/home/profes/ssoo-uc3m=
+
+  =PWD=/home/profes/ssoo-uc3m=
+
+  =PWD=/home/profes/ssoo-uc3m=
+
+  =LOGNAME=ssoo-uc3m=
+
+  =LOGNAME=ssoo-uc3m=
+
+  =USER=ssoo-uc3m=
+*** Test 6
+The variables are misspelled
+
+=./myenv Shell USE LANGG PW HELL lines.txt=
+- *Expected output (in terminal)*  \newline
+  =There was an error obtaining the line for Shell: the line could not be found=
+
+  =There was an error obtaining the line for USE: the line could not be found=
+
+  =There was an error obtaining the line for LANGG: the line could not be found=
+
+  =There was an error obtaining the line for PW: the line could not be found=
+
+  =There was an error obtaining the line for HELL: the line could not be found=
+- *Actual output (in terminal)*  \newline
+  =There was an error obtaining the line for Shell: the line could not be found=
+
+  =There was an error obtaining the line for USE: the line could not be found=
+
+  =There was an error obtaining the line for LANGG: the line could not be found=
+
+  =There was an error obtaining the line for PW: the line could not be found=
+
+  =There was an error obtaining the line for HELL: the line could not be found=
+*** Test 7
+The great amount of equal signs in \text{LS\underline\ COLORS} could be a problematic input. An argument with '=' should be passed as erroneous, since the 'env' variable's name is the one that appears /before/ that character.
+
+=./myenv LS_COLORS=rs LS_COLORS lines.txt=
+- *Expected output (in lines.txt)*  \newline
+  =LS\underline\ COLORS=rs=0:di=01;34:ln=01;36...=
+- *Actual output (in lines.txt)*  \newline
+  =LS\underline\ COLORS=rs=0:di=01;34:ln=01;36...=
+*** Test 8
+The test shows that, since no specification was introduce for the naming of the output file, any name could server as the ouput file's name.
+
+=./myenv SHLVL USER TERM LOGNAME=
+- *Expected output (in LOGNAME)*  \newline
+  =TERM=xterm-256color=
+
+  =USER=ssoo-uc3m=
+
+  =SHLVL=1=
+- *Actual output (in LOGNAME)*  \newline
+  =TERM=xterm-256color=
+
+  =USER=ssoo-uc3m=
+
+  =SHLVL=1=
+\newpage
+** Test cases for myls.c
+The expected output of each test was obtained by applying the following command: =ls -l=, as it shares most of the functionality. However, it does not show errors, if any, which our does.
+*** Test 1
+Current directory (no argument)
+
+=./myls=
+- *Expected output* \newline
+  =.=
+
+  =..=
+
+  =authors.txt=
+
+  =myls.c=
+
+  =mywc.c=
+
+  =myenv.c=
+
+  =Makefile=
+
+  =myls=
+- *Actual output* \newline
+  =.=
+
+  =..=
+
+  =authors.txt=
+
+  =myls.c=
+
+  =mywc.c=
+
+  =myenv.c=
+
+  =Makefile=
+
+  =myls=
+\newpage
+*** Test 2
+Current directory ("." as argument)
+
+=./myls .=
+- *Expected output* \newline
+  =.=
+
+  =..=
+
+  =authors.txt=
+
+  =myls.c=
+
+  =mywc.c=
+
+  =myenv.c=
+
+  =Makefile=
+
+  =myls=
+- *Actual output* \newline
+  =.=
+
+  =..=
+
+  =authors.txt=
+
+  =myls.c=
+
+  =mywc.c=
+
+  =myenv.c=
+
+  =Makefile=
+
+  =myls=
+\newpage
+*** Test 3
+Other directory
+
+=./myls os_p1_100472172_100472315_100472088=
+- *Expected output* \newline
+  =.=
+
+  =..=
+
+  =authors.txt=
+
+  =myls.c=
+
+  =mywc.c=
+
+  =myenv.c=
+
+  =Makefile=
+
+  =myls=
+- *Actual output* \newline
+  =.=
+
+  =..=
+
+  =authors.txt=
+
+  =myls.c=
+
+  =mywc.c=
+
+  =myenv.c=
+
+  =Makefile=
+
+  =myls=
+\newpage
+*** Test 4
+Directory that does not exist
+
+=./myls os-p1=
+- *Expected output* \newline
+
+- *Actual output* \newline
+  cannot access 'os-p1': there is no such directory
+*** Test 5
+File instead of directory
+
+=./myls authors.txt=
+- *Expected output* \newline
+
+- *Actual output* \newline
+  cannot access 'authors.txt': there is no such directory
+*** Test 6
+Two directories instead of just one
+
+=./myls ~/Desktop ~/Documents=
+- *Expected output* \newline
+  Desktop:
+
+  /Contents of the 'Desktop' folder/
+
+  Documents:
+
+  /Contents of the 'Documents folder/
+- *Actual output* \newline
+  Desktop:
+
+  /Contents of the 'Desktop' folder/
+
+  Documents:
+
+  /Contents of the 'Documents folder/
+*** Test 7
+Parent directory
+
+=./myls ..=
+- *Expected output* \newline
+  /Contents of the 'parent' directory/
+- *Actual output* \newline
+  /Contents of the 'parent' directory/
+
+\newpage
